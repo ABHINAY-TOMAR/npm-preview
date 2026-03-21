@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Build output
+# out/ - KEEP THIS, contains compiled extension
+dist/
+
+# Development
+.vscode/
+.vscode-test/
+src/
+*.ts
+*.map
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+LICENSE
+
+# Planning
+.planning/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+test/
+tests/
+coverage/
+
+# Misc
+*.vsix
+*.log

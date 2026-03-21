@@ -1,0 +1,153 @@
+{
+  "name": "npm-preview",
+  "displayName": "NPM Preview",
+  "description": "Run npm scripts and preview your app inside the IDE — with hot reload, network inspector, console panel, and viewport simulator.",
+  "version": "1.0.0",
+  "publisher": "ABHINAY-TOMAR",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ABHINAY-TOMAR/npm-preview.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Debuggers"
+  ],
+  "activationEvents": [
+    "workspaceContains:package.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "npmPreview.start",
+        "title": "NPM Preview: Start",
+        "icon": "$(play)"
+      },
+      {
+        "command": "npmPreview.stop",
+        "title": "NPM Preview: Stop",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "npmPreview.openPanel",
+        "title": "NPM Preview: Open Panel",
+        "icon": "$(browser)"
+      },
+      {
+        "command": "npmPreview.runScript",
+        "title": "NPM Preview: Run Script"
+      },
+      {
+        "command": "npmPreview.clearConsole",
+        "title": "NPM Preview: Clear Console"
+      },
+      {
+        "command": "npmPreview.refreshScripts",
+        "title": "NPM Preview: Refresh Scripts"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "npm-preview",
+          "title": "NPM Preview",
+          "icon": "icons/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "npm-preview": [
+        {
+          "id": "npmPreviewScripts",
+          "name": "Scripts",
+          "type": "tree"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "NPM Preview",
+      "properties": {
+        "npmPreview.startScript": {
+          "type": "string",
+          "default": "start",
+          "description": "npm script to run"
+        },
+        "npmPreview.port": {
+          "type": "number",
+          "default": 3000,
+          "description": "Dev server port"
+        },
+        "npmPreview.hotReload": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable hot reload on file save"
+        },
+        "npmPreview.watchGlob": {
+          "type": "string",
+          "default": "**/*.{js,jsx,ts,tsx,css,html,vue,svelte}",
+          "description": "Files to watch"
+        },
+        "npmPreview.networkInspector": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable network inspector"
+        },
+        "npmPreview.consolePanel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable console panel"
+        },
+        "npmPreview.defaultViewport": {
+          "type": "string",
+          "default": "desktop",
+          "description": "Default viewport"
+        },
+        "npmPreview.openPanelOnStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open panel on server start"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "npmPreview.start",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "!npmPreview.running"
+      },
+      {
+        "command": "npmPreview.stop",
+        "key": "ctrl+shift+x",
+        "mac": "cmd+shift+x",
+        "when": "npmPreview.running"
+      },
+      {
+        "command": "npmPreview.openPanel",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.18.1",
+    "@vscode/vsce": "^2.24.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "portfinder": "^1.0.38",
+    "tree-kill": "^1.2.2",
+    "ws": "^8.16.0"
+  }
+}

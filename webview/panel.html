@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src http://localhost:*; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com;">
+<title>NPM Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:#0a0a0f; --surface:#111118; --panel:#16161f; --border:#1e1e2e;
+  --accent:#00ffa3; --accent2:#ff6b6b; --accent3:#4d9fff; --accent4:#ffcc00;
+  --text:#e2e2f0; --muted:#5a5a7a; --muted2:#3a3a52;
+  --font:'JetBrains Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+/* TOOLBAR */
+.toolbar{height:40px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:8px;flex-shrink:0}
+.btn{height:26px;padding:0 10px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--font);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .12s;white-space:nowrap}
+.btn:hover{border-color:var(--muted2);background:var(--border)}
+.btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700}
+.btn.primary:hover{background:#00e691}
+.btn.danger{border-color:var(--accent2);color:var(--accent2)}
+.btn.danger:hover{background:rgba(255,107,107,.1)}
+.sep{width:1px;height:18px;background:var(--border);margin:0 2px}
+.url-bar{flex:1;height:26px;background:var(--surface);border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;padding:0 8px;gap:6px;cursor:text;font-size:11px;color:var(--muted)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite;flex-shrink:0}
+.live-dot.off{background:var(--muted2);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.dev-btns{display:flex;gap:3px}
+.dev-btn{width:24px;height:24px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .12s}
+.dev-btn:hover{color:var(--text);border-color:var(--muted2)}
+.dev-btn.active{color:var(--accent);border-color:var(--accent);background:rgba(0,255,163,.08)}
+/* PREVIEW */
+.preview-area{flex:1;display:flex;align-items:center;justify-content:center;background:#080810;min-height:0;position:relative;overflow:hidden}
+.preview-area::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.012) 39px,rgba(255,255,255,.012) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.012) 39px,rgba(255,255,255,.012) 40px);pointer-events:none}
+.device-wrap{display:flex;align-items:center;justify-content:center;width:100%;height:100%;transition:all .3s}
+.device-chrome{background:#1a1a28;border-radius:12px;border:2px solid #2a2a3e;box-shadow:0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;overflow:hidden;transition:all .3s cubic-bezier(.4,0,.2,1)}
+.device-chrome.desktop{width:90%;max-width:900px;height:90%;border-radius:8px}
+.device-chrome.tablet{width:480px;height:80%}
+.device-chrome.mobile{width:300px;height:80%;max-height:600px}
+.device-bar{height:28px;background:#0f0f1a;border-bottom:1px solid #1e1e30;display:flex;align-items:center;padding:0 10px;gap:5px;flex-shrink:0}
+.dd{width:8px;height:8px;border-radius:50%}
+.dd.r{background:#ff5f57}.dd.y{background:#febc2e}.dd.g{background:#28c840}
+.device-url{flex:1;background:#1e1e2e;border-radius:3px;height:16px;margin:0 8px;display:flex;align-items:center;padding:0 6px;font-size:9px;color:var(--muted)}
+.preview-iframe{flex:1;border:none;background:#fff;width:100%}
+.reload-flash{position:absolute;inset:0;background:rgba(0,255,163,.18);pointer-events:none;opacity:0;transition:opacity .08s;border-radius:inherit}
+.reload-flash.on{opacity:1;animation:flashOut .5s forwards}
+@keyframes flashOut{0%{opacity:1}100%{opacity:0}}
+/* EMPTY STATE */
+.empty-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--muted)}
+.empty-icon{font-size:52px;opacity:.4}
+.empty-title{font-size:16px;color:var(--text);opacity:.7}
+.empty-sub{font-size:12px;color:var(--muted)}
+/* BOTTOM TABS */
+.btabs{height:30px;background:var(--bg);border-top:1px solid var(--border);display:flex;align-items:flex-end;padding-left:8px;flex-shrink:0}
+.btab{height:26px;padding:0 12px;font-size:11px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:5px;border-radius:4px 4px 0 0;border:1px solid transparent;border-bottom:none;transition:all .1s}
+.btab:hover{color:var(--text)}
+.btab.active{color:var(--text);background:var(--surface);border-color:var(--border)}
+.cnt{font-size:9px;font-weight:700;padding:0 4px;border-radius:2px;line-height:14px}
+.cnt.red{background:var(--accent2);color:#000}
+.cnt.green{background:var(--accent);color:#000}
+.cnt.yellow{background:var(--accent4);color:#000}
+/* PANELS */
+.panels{height:180px;background:var(--surface);display:flex;flex-shrink:0}
+.panel{flex:1;display:none;overflow-y:auto;flex-direction:column}
+.panel.active{display:flex}
+/* console */
+.cline{padding:2px 12px;display:flex;gap:8px;font-size:11px;line-height:1.6;border-left:2px solid transparent}
+.cline:hover{background:var(--panel)}
+.cline.warn{color:var(--accent4);border-left-color:var(--accent4);background:rgba(255,204,0,.04)}
+.cline.error{color:var(--accent2);border-left-color:var(--accent2);background:rgba(255,107,107,.04)}
+.cline.info{color:var(--accent3)}
+.ct{color:var(--muted);font-size:10px;flex-shrink:0;min-width:64px}
+/* network */
+.nt{display:grid;grid-template-columns:40px 60px 1fr 70px 60px 55px 55px;font-size:10px;padding:3px 12px;border-bottom:1px solid rgba(30,30,46,.5);align-items:center}
+.nt:first-child{color:var(--muted);text-transform:uppercase;letter-spacing:.06em;position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border)}
+.nt:hover:not(:first-child){background:var(--panel);cursor:pointer}
+.st{font-weight:700}
+.st.ok{color:var(--accent)}.st.redir{color:var(--accent4)}.st.err{color:var(--accent2)}
+.mth{font-weight:700;font-size:10px}
+.mth.GET{color:var(--accent3)}.mth.POST{color:var(--accent4)}.mth.DELETE{color:var(--accent2)}
+.nm,.ns,.ntime{color:var(--muted);font-size:10px}
+.nu{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* hot reload */
+.hline{display:flex;align-items:center;gap:8px;padding:4px 12px;font-size:11px;border-bottom:1px solid rgba(30,30,46,.5)}
+.htag{margin-left:auto;font-size:9px;font-weight:700;padding:0 4px;border-radius:2px;line-height:15px}
+.htag.css{background:rgba(77,159,255,.2);color:var(--accent3)}
+.htag.js{background:rgba(255,204,0,.2);color:var(--accent4)}
+.htag.html{background:rgba(0,255,163,.2);color:var(--accent)}
+/* statusbar */
+.statusbar{height:20px;background:#04040a;border-top:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:14px;font-size:10px;color:var(--muted);flex-shrink:0}
+.slive{display:flex;align-items:center;gap:4px;color:var(--accent)}
+.slive::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite}
+/* scrollbar */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <button class="btn primary" id="btnStart" onclick="send('start')">▶ Run</button>
+  <button class="btn danger"  id="btnStop"  onclick="send('stop')">■ Stop</button>
+  <button class="btn"                        onclick="reloadIframe()">↺</button>
+  <div class="sep"></div>
+  <div class="url-bar">
+    <div class="live-dot off" id="dot"></div>
+    <span id="urlText" style="color:var(--muted)">Not running</span>
+    <span id="copyBtn" onclick="copyUrl()" style="cursor:pointer;color:var(--muted);margin-left:auto">⎘</span>
+    <span id="externalBtn" onclick="openExternal()" style="cursor:pointer;color:var(--muted)">↗</span>
+  </div>
+  <div class="sep"></div>
+  <div class="dev-btns">
+    <button class="dev-btn active" id="devDesktop" onclick="setDevice('desktop')" title="Desktop">🖥</button>
+    <button class="dev-btn"        id="devTablet"  onclick="setDevice('tablet')"  title="Tablet">📱</button>
+    <button class="dev-btn"        id="devMobile"  onclick="setDevice('mobile')"  title="Mobile">📲</button>
+  </div>
+  <div class="sep"></div>
+  <button class="btn" id="hmrBtn" onclick="toggleHMR()" title="Toggle hot reload">🔥 HMR</button>
+</div>
+
+<!-- PREVIEW -->
+<div class="preview-area" id="previewArea">
+  <div class="empty-state" id="emptyState">
+    <div class="empty-icon">⚡</div>
+    <div class="empty-title">NPM Preview</div>
+    <div class="empty-sub">Click <strong>Run</strong> to start your dev server</div>
+  </div>
+  <div class="device-wrap" id="deviceWrap" style="display:none">
+    <div class="device-chrome desktop" id="deviceChrome">
+      <div class="device-bar">
+        <div class="dd r"></div><div class="dd y"></div><div class="dd g"></div>
+        <div class="device-url" id="deviceUrl">—</div>
+      </div>
+      <iframe class="preview-iframe" id="iframe" src="about:blank"></iframe>
+      <div class="reload-flash" id="reloadFlash"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM TABS -->
+<div class="btabs">
+  <div class="btab active" id="btConsole" onclick="switchPanel('console')">
+    🖨 Console <span class="cnt red" id="cntErr">0</span>
+  </div>
+  <div class="btab" id="btNetwork" onclick="switchPanel('network')">
+    📡 Network <span class="cnt green" id="cntNet">0</span>
+  </div>
+  <div class="btab" id="btReload" onclick="switchPanel('reload')">
+    🔄 Hot Reload <span class="cnt yellow" id="cntRel">0</span>
+  </div>
+</div>
+
+<!-- PANELS -->
+<div class="panels">
+
+  <!-- CONSOLE -->
+  <div class="panel active" id="panelConsole"></div>
+
+  <!-- NETWORK (intercepted via iframe messaging) -->
+  <div class="panel" id="panelNetwork">
+    <div class="nt"><span>#</span><span>Status</span><span>URL</span><span>Method</span><span>Type</span><span>Size</span><span>Time</span></div>
+    <div id="netRows"></div>
+  </div>
+
+  <!-- HOT RELOAD -->
+  <div class="panel" id="panelReload">
+    <div id="relRows"></div>
+  </div>
+
+</div>
+
+<!-- STATUS BAR -->
+<div class="statusbar">
+  <span id="slive" style="color:var(--muted)">● STOPPED</span>
+  <span id="shmr">🔥 HMR ON</span>
+  <span style="margin-left:auto" id="sUptime"></span>
+  <span id="sNode">node/npm</span>
+</div>
+
+<script>
+const vscode = acquireVsCodeApi();
+const send   = (cmd, extra={}) => vscode.postMessage({ command:cmd, ...extra });
+
+let port     = 3000;
+let running  = false;
+let hmrOn    = true;
+let errCount = 0;
+let netCount = 0;
+let relCount = 0;
+let seconds  = 0;
+let uptimer;
+
+// ── Messages from extension ──────────────────────────────────
+window.addEventListener('message', ({ data }) => {
+  switch(data.type) {
+    case 'init':
+    case 'serverStatus':
+      updateServerState(data.running, data.port); break;
+    case 'log':
+      addConsole(data.time, data.level, data.message); break;
+    case 'hotReload':
+      onHotReload(data.file); break;
+    case 'networkRequest':
+      addNetworkRow(data); break;
+  }
+});
+
+// ── Server state ─────────────────────────────────────────────
+function updateServerState(r, p) {
+  running = r; port = p || 3000;
+  const url = `http://localhost:${port}`;
+  document.getElementById('dot').className     = 'live-dot' + (r ? '' : ' off');
+  document.getElementById('urlText').textContent = r ? url : 'Not running';
+  document.getElementById('urlText').style.color  = r ? 'var(--text)' : 'var(--muted)';
+  document.getElementById('deviceUrl').textContent = r ? url : '—';
+  document.getElementById('emptyState').style.display = r ? 'none' : 'flex';
+  document.getElementById('deviceWrap').style.display  = r ? 'flex' : 'none';
+  document.getElementById('slive').textContent  = r ? `● LIVE :${port}` : '● STOPPED';
+  document.getElementById('slive').style.color  = r ? 'var(--accent)' : 'var(--muted)';
+  if (r) {
+    document.getElementById('iframe').src = url;
+    clearInterval(uptimer);
+    seconds = 0;
+    uptimer = setInterval(() => {
+      seconds++;
+      const h=String(Math.floor(seconds/3600)).padStart(2,'0');
+      const m=String(Math.floor((seconds%3600)/60)).padStart(2,'0');
+      const s=String(seconds%60).padStart(2,'0');
+      document.getElementById('sUptime').textContent = `⏱ ${h}:${m}:${s}`;
+    }, 1000);
+  } else {
+    clearInterval(uptimer);
+    document.getElementById('iframe').src = 'about:blank';
+  }
+}
+
+// ── Console ──────────────────────────────────────────────────
+function addConsole(time, level, msg) {
+  const panel = document.getElementById('panelConsole');
+  const div   = document.createElement('div');
+  div.className = `cline ${level}`;
+  div.innerHTML = `<span class="ct">${time||''}</span><span>${escHtml(msg)}</span>`;
+  panel.appendChild(div);
+  panel.scrollTop = panel.scrollHeight;
+  if (level === 'error') {
+    errCount++;
+    document.getElementById('cntErr').textContent = errCount;
+  }
+}
+
+// ── Network ──────────────────────────────────────────────────
+function addNetworkRow(req) {
+  netCount++;
+  document.getElementById('cntNet').textContent = netCount;
+  const stCls = req.status < 300 ? 'ok' : req.status < 400 ? 'redir' : 'err';
+  const rows = document.getElementById('netRows');
+  const div  = document.createElement('div');
+  div.className = 'nt';
+  div.innerHTML = `
+    <span style="color:var(--muted)">${netCount}</span>
+    <span class="st ${stCls}">${req.status||'—'}</span>
+    <span class="nu">${escHtml(req.url||'')}</span>
+    <span class="mth ${req.method}">${req.method||'GET'}</span>
+    <span class="nm">${req.type||'fetch'}</span>
+    <span class="ns">${req.size||'—'}</span>
+    <span class="ntime">${req.time||'—'}</span>
+  `;
+  rows.prepend(div);
+}
+
+// ── Hot Reload ───────────────────────────────────────────────
+function onHotReload(file) {
+  if (!hmrOn) return;
+  relCount++;
+  document.getElementById('cntRel').textContent = relCount;
+  const ext  = (file.split('.').pop()||'js').toLowerCase();
+  const tag  = ext === 'css' ? 'css' : ext === 'html' ? 'html' : 'js';
+  const icon = ext === 'css' ? '💅' : ext === 'html' ? '📄' : '🔄';
+  const rows = document.getElementById('relRows');
+  const div  = document.createElement('div');
+  div.className = 'hline';
+  div.innerHTML = `
+    <span>${icon}</span>
+    <span style="color:var(--muted);font-size:10px">${now()}</span>
+    <span>${escHtml(file)}</span>
+    <span class="htag ${tag}">${tag.toUpperCase()}</span>
+  `;
+  rows.prepend(div);
+  flashReload();
+  reloadIframe();
+  addConsole(now(), 'info', `HMR: ${file}`);
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+function reloadIframe() {
+  if (!running) return;
+  const f = document.getElementById('iframe');
+  f.src   = f.src;
+  flashReload();
+}
+
+function flashReload() {
+  const el = document.getElementById('reloadFlash');
+  el.classList.remove('on');
+  void el.offsetWidth;
+  el.classList.add('on');
+  setTimeout(() => el.classList.remove('on'), 500);
+}
+
+function setDevice(d) {
+  document.getElementById('deviceChrome').className = 'device-chrome ' + d;
+  ['Desktop','Tablet','Mobile'].forEach(n =>
+    document.getElementById('dev'+n).classList.remove('active')
+  );
+  document.getElementById('dev'+d[0].toUpperCase()+d.slice(1)).classList.add('active');
+}
+
+function switchPanel(p) {
+  ['Console','Network','Reload'].forEach(n => {
+    document.getElementById('bt'+n).classList.remove('active');
+    document.getElementById('panel'+n).classList.remove('active');
+  });
+  document.getElementById('bt'+p[0].toUpperCase()+p.slice(1)).classList.add('active');
+  document.getElementById('panel'+p[0].toUpperCase()+p.slice(1)).classList.add('active');
+}
+
+function toggleHMR() {
+  hmrOn = !hmrOn;
+  document.getElementById('hmrBtn').textContent = hmrOn ? '🔥 HMR' : '❄ HMR';
+  document.getElementById('shmr').textContent   = hmrOn ? '🔥 HMR ON' : '❄ HMR OFF';
+}
+
+function copyUrl()     { send('copyUrl',     { url: `http://localhost:${port}` }); }
+function openExternal(){ send('openExternal',{ url: `http://localhost:${port}` }); }
+function now() { return new Date().toLocaleTimeString('en-US',{hour12:false}); }
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Inject network interceptor into iframe when it loads
+document.getElementById('iframe').addEventListener('load', () => {
+  try {
+    const iw = document.getElementById('iframe').contentWindow;
+    // Patch fetch in the iframe to capture requests
+    const origFetch = iw.fetch.bind(iw);
+    iw.fetch = async (input, init) => {
+      const start = Date.now();
+      const url   = typeof input === 'string' ? input : input.url;
+      const method= (init?.method || 'GET').toUpperCase();
+      try {
+        const res  = await origFetch(input, init);
+        const size = res.headers.get('content-length') || '—';
+        addNetworkRow({ url, method, status: res.status, type:'fetch', size, time: `${Date.now()-start}ms` });
+        return res;
+      } catch(e) {
+        addNetworkRow({ url, method, status:0, type:'fetch', size:'—', time:`${Date.now()-start}ms` });
+        throw e;
+      }
+    };
+    // Patch console in the iframe
+    ['log','warn','error','info'].forEach(lvl => {
+      const orig = iw.console[lvl].bind(iw.console);
+      iw.console[lvl] = (...args) => {
+        addConsole(now(), lvl, args.map(String).join(' '));
+        orig(...args);
+      };
+    });
+  } catch(_) { /* cross-origin — cannot patch */ }
+});
+</script>
+</body>
+</html>
