@@ -3,11 +3,13 @@
   "displayName": "NPM Preview",
   "description": "Run npm scripts and preview your app inside the IDE — with hot reload, network inspector, console panel, and viewport simulator.",
   "version": "1.0.0",
+  "license": "MIT",
   "publisher": "ABHINAY-TOMAR",
   "repository": {
     "type": "git",
     "url": "https://github.com/ABHINAY-TOMAR/npm-preview"
   },
+  "homepage": "https://github.com/ABHINAY-TOMAR/npm-preview",
   "engines": {
     "vscode": "^1.85.0"
   },
