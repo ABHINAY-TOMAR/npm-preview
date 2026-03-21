@@ -6,7 +6,7 @@
   "publisher": "ABHINAY-TOMAR",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ABHINAY-TOMAR/npm-preview.git"
+    "url": "https://github.com/ABHINAY-TOMAR/npm-preview"
   },
   "engines": {
     "vscode": "^1.85.0"
