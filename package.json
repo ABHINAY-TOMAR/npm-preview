@@ -2,7 +2,7 @@
   "name": "npm-preview",
   "displayName": "NPM Preview",
   "description": "Run npm scripts and preview your app inside the IDE — with hot reload, network inspector, console panel, and viewport simulator.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "publisher": "ABHINAY-TOMAR",
   "repository": {
@@ -49,6 +49,16 @@
       {
         "command": "npmPreview.refreshScripts",
         "title": "NPM Preview: Refresh Scripts"
+      },
+      {
+        "command": "npmPreview.takeScreenshot",
+        "title": "NPM Preview: Take Screenshot",
+        "category": "NPM Preview"
+      },
+      {
+        "command": "npmPreview.saveScreenshot",
+        "title": "NPM Preview: Save Screenshot",
+        "category": "NPM Preview"
       }
     ],
     "viewsContainers": {
@@ -148,6 +158,7 @@
     "typescript": "^5.3.0"
   },
   "dependencies": {
+    "html2canvas": "^1.4.1",
     "portfinder": "^1.0.38",
     "tree-kill": "^1.2.2",
     "ws": "^8.16.0"

@@ -34,9 +34,9 @@ export class StatusBarManager {
         break;
 
       case 'stopped':
-        this.item.text = '$(globe) NPM Preview';
-        this.item.backgroundColor = undefined;
-        this.item.tooltip = 'Click to open NPM Preview panel';
+        this.item.text = '$(globe) NPM Preview: Click to Start';
+        this.item.backgroundColor = new vscode.ThemeColor('statusBarItem.prominentForeground');
+        this.item.tooltip = 'Click to start your dev server (Ctrl+Shift+R)';
         break;
 
       case 'idle':

@@ -120,6 +120,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12
   </div>
   <div class="sep"></div>
   <button class="btn" id="hmrBtn" onclick="toggleHMR()" title="Toggle hot reload">🔥 HMR</button>
+  <button class="btn" id="btnScreenshot" onclick="takeScreenshot()" title="Capture screenshot">📷</button>
 </div>
 
 <!-- PREVIEW -->
@@ -206,6 +207,13 @@ window.addEventListener('message', ({ data }) => {
       onHotReload(data.file); break;
     case 'networkRequest':
       addNetworkRow(data); break;
+    case 'captureScreenshot':
+      takeScreenshot(); break;
+    case 'clearConsole':
+      document.getElementById('panelConsole').innerHTML = '';
+      errCount = 0;
+      document.getElementById('cntErr').textContent = '0';
+      break;
   }
 });
 
@@ -371,6 +379,28 @@ document.getElementById('iframe').addEventListener('load', () => {
     });
   } catch(_) { /* cross-origin — cannot patch */ }
 });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<!-- Using CDN as fallback - for production, use: <script src="${vscode://asset/npm-preview/webview/html2canvas.min.js}"></script> -->
+<script>
+async function takeScreenshot() {
+  try {
+    const element = document.getElementById('deviceChrome');
+    if (!element) {
+      vscode.postMessage({ type: 'screenshotError', error: 'No preview to capture' });
+      return;
+    }
+    const canvas = await html2canvas(element, {
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#1a1a28'
+    });
+    const dataUrl = canvas.toDataURL('image/png');
+    vscode.postMessage({ type: 'screenshotData', data: dataUrl });
+  } catch (err) {
+    vscode.postMessage({ type: 'screenshotError', error: String(err) });
+  }
+}
 </script>
 </body>
 </html>

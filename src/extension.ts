@@ -18,29 +18,85 @@ export function activate(context: vscode.ExtensionContext) {
   scriptsTree = new ScriptsTreeProvider();
   statusBar = new StatusBarManager();
 
+  const isFirstRun = !context.globalState.get('npmPreview.hasShownWelcome');
+  if (isFirstRun) {
+    context.globalState.update('npmPreview.hasShownWelcome', true);
+    setTimeout(async () => {
+      try {
+        const choice = await vscode.window.showInformationMessage(
+          '🎉 NPM Preview installed! Press Ctrl+Shift+R to start your dev server.',
+          'Open Settings',
+          'Run Script'
+        );
+        if (choice === 'Open Settings') {
+          vscode.commands.executeCommand('workbench.action.openSettings', 'npmPreview');
+        } else if (choice === 'Run Script') {
+          vscode.commands.executeCommand('npmPreview.runScript');
+        }
+      } catch (err) {
+        console.error('Welcome message error:', err);
+      }
+    }, 2000);
+  }
+
   // Create tree view in sidebar
-  vscode.window.createTreeView('npmPreviewScripts', {
+  const treeView = vscode.window.createTreeView('npmPreviewScripts', {
     treeDataProvider: scriptsTree,
   });
+  context.subscriptions.push(treeView);
+  
+  // Add statusBar to subscriptions for proper disposal
+  context.subscriptions.push(statusBar);
 
   // ── Start ──────────────────────────────────────────────────
   context.subscriptions.push(
     vscode.commands.registerCommand('npmPreview.start', async () => {
+      const sm = serverManager;
+      if (!sm) {
+        vscode.window.showErrorMessage('NPM Preview: Extension not properly initialized');
+        return;
+      }
+      
       const cfg = vscode.workspace.getConfiguration('npmPreview');
-      const script = cfg.get<string>('startScript', 'start');
+      const configuredScript = cfg.get<string>('startScript', 'start');
+      
       try {
-        await serverManager!.start(script);
+        await sm.start(configuredScript);
         vscode.commands.executeCommand('setContext', 'npmPreview.running', true);
-        statusBar?.setStatus('running', serverManager!.port);
+        statusBar?.setStatus('running', sm.port);
         if (cfg.get<boolean>('openPanelOnStart', true)) {
-          previewPanel = PreviewPanel.createOrShow(context, serverManager!);
+          previewPanel = PreviewPanel.createOrShow(context, sm);
         }
-        vscode.window.showInformationMessage(
-          `NPM Preview: Server started on port ${serverManager!.port}`
-        );
+        const port = sm.port;
+        try {
+          const choice = await vscode.window.showInformationMessage(
+            `✅ Server started on port ${port}`,
+            'Open Panel'
+          );
+          if (choice === 'Open Panel' && serverManager) {
+            previewPanel = PreviewPanel.createOrShow(context, serverManager);
+          }
+        } catch (err) {
+          console.error('Open Panel choice error:', err);
+        }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
-        vscode.window.showErrorMessage(`NPM Preview: ${message}`);
+        const lines = message.split('\n');
+        const title = lines[0].replace(/^TIMEOUT: |^Error: /i, '');
+        const details = lines.slice(1).join('\n').trim();
+        
+        if (details) {
+          try {
+            const choice = await vscode.window.showErrorMessage(title, { detail: details, modal: false }, 'Open Settings');
+            if (choice === 'Open Settings') {
+              vscode.commands.executeCommand('workbench.action.openSettings', 'npmPreview');
+            }
+          } catch (err) {
+            console.error('Error message choice error:', err);
+          }
+        } else {
+          vscode.window.showErrorMessage(`NPM Preview: ${title}`);
+        }
         statusBar?.setStatus('idle');
       }
     })
@@ -49,8 +105,12 @@ export function activate(context: vscode.ExtensionContext) {
   // ── Stop ───────────────────────────────────────────────────
   context.subscriptions.push(
     vscode.commands.registerCommand('npmPreview.stop', async () => {
+      if (!serverManager) {
+        vscode.window.showErrorMessage('NPM Preview: Extension not properly initialized');
+        return;
+      }
       try {
-        await serverManager!.stop();
+        await serverManager.stop();
         vscode.commands.executeCommand('setContext', 'npmPreview.running', false);
         statusBar?.setStatus('stopped');
         vscode.window.showInformationMessage('NPM Preview: Server stopped');
@@ -79,22 +139,52 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand(
       'npmPreview.runScript',
       async (scriptName?: string) => {
-        const names = await scriptsTree!.getScriptNames();
+        if (!scriptsTree || !serverManager) {
+          vscode.window.showErrorMessage('NPM Preview: Extension not properly initialized');
+          return;
+        }
+        
+        const names = await scriptsTree.getScriptNames();
+        
+        if (names.length === 0) {
+          vscode.window.showWarningMessage('No npm scripts found in package.json');
+          return;
+        }
+
+        const prioritized = [...names].sort((a, b) => {
+          const priority = ['dev', 'development', 'start', 'serve', 'preview'];
+          const aIdx = priority.indexOf(a.toLowerCase());
+          const bIdx = priority.indexOf(b.toLowerCase());
+          if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+          if (aIdx !== -1) return -1;
+          if (bIdx !== -1) return 1;
+          return 0;
+        });
+
         const name =
           scriptName ??
-          (await vscode.window.showQuickPick(names, {
-            placeHolder: 'Select npm script to run',
+          (await vscode.window.showQuickPick(prioritized, {
+            placeHolder: 'Select npm script to run (dev/start highlighted)',
+            matchOnDescription: true,
           }));
         if (!name) return;
 
         try {
-          await serverManager!.start(name);
+          vscode.window.showInformationMessage(`Starting "${name}"...`, { modal: false });
+          await serverManager.start(name);
           vscode.commands.executeCommand('setContext', 'npmPreview.running', true);
-          statusBar?.setStatus('running', serverManager!.port);
-          previewPanel = PreviewPanel.createOrShow(context, serverManager!);
+          statusBar?.setStatus('running', serverManager.port);
+          previewPanel = PreviewPanel.createOrShow(context, serverManager);
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage(`NPM Preview: ${message}`);
+          const lines = message.split('\n');
+          const title = lines[0];
+          const details = lines.slice(1).join('\n').trim();
+          if (details) {
+            vscode.window.showErrorMessage(title, { detail: details, modal: false });
+          } else {
+            vscode.window.showErrorMessage(`NPM Preview: ${title}`);
+          }
         }
       })
   );
@@ -106,12 +196,47 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // ── Take Screenshot (placeholder) ───────────────────────────
+  // ── Take Screenshot ──────────────────────────────────────────
   context.subscriptions.push(
-    vscode.commands.registerCommand('npmPreview.takeScreenshot', () => {
-      vscode.window.showInformationMessage(
-        'Screenshot feature coming soon!'
-      );
+    vscode.commands.registerCommand('npmPreview.takeScreenshot', async () => {
+      const panel = PreviewPanel.currentPanel;
+      if (!panel) {
+        vscode.window.showWarningMessage('No preview panel open');
+        return;
+      }
+      
+      // Request capture from webview
+      panel.postMessage({ type: 'captureScreenshot' });
+      
+      vscode.window.setStatusBarMessage('$(camera) Capturing screenshot...', 2000);
+    })
+  );
+
+  // ── Save Screenshot ───────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('npmPreview.saveScreenshot', async (_: unknown, base64Data: string) => {
+      try {
+        // Remove data URL prefix
+        const base64 = base64Data.replace(/^data:image\/png;base64,/, '');
+        const buffer = Buffer.from(base64, 'base64');
+        
+        // Open save dialog
+        const uri = await vscode.window.showSaveDialog({
+          defaultUri: vscode.Uri.file(`screenshot-${Date.now()}.png`),
+          filters: {
+            'PNG Image': ['png'],
+            'All Files': ['*']
+          }
+        });
+        
+        if (uri) {
+          await vscode.workspace.fs.writeFile(uri, buffer);
+          vscode.window.showInformationMessage(`📷 Screenshot saved to ${uri.fsPath}`);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(`Failed to save screenshot: ${message}`);
+      }
     })
   );
 
@@ -137,7 +262,15 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(packageJsonWatcher);
 }
 
-export function deactivate(): void {
-  serverManager?.stop();
+export async function deactivate(): Promise<void> {
+  // Stop the server properly
+  if (serverManager) {
+    try {
+      await serverManager.stop();
+    } catch (err) {
+      console.error('Error stopping server on deactivate:', err);
+    }
+  }
+  // Dispose status bar
   statusBar?.dispose();
 }

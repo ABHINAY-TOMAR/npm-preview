@@ -30,11 +30,13 @@ export type PanelMessage =
   | { type: 'networkRequest'; request: NetworkRequest }
   | { type: 'clearConsole' }
   | { type: 'npmOutput'; text: string; stream: 'stdout' | 'stderr' }
-  | { type: 'playwrightResult'; action: string; status: 'ok' | 'error'; detail?: string }
   | { type: 'mcpEvent'; event: string; data: unknown }
   | { type: 'init'; running: boolean; port: number }
   | { type: 'serverStatus'; running: boolean; port: number }
-  | { type: 'log'; time: string; level: 'log' | 'warn' | 'error' | 'info'; message: string };
+  | { type: 'log'; time: string; level: 'log' | 'warn' | 'error' | 'info'; message: string }
+  | { type: 'captureScreenshot' }
+  | { type: 'screenshotData'; data: string }
+  | { type: 'screenshotError'; error: string };
 
 export class PreviewPanel {
   static currentPanel: PreviewPanel | undefined;
@@ -90,6 +92,9 @@ export class PreviewPanel {
   }
 
   bindServer(server: ServerManager): void {
+    // Clear previous server bindings if any
+    this.unbindServer();
+    
     this.boundServer = server;
 
     // Replay existing logs
@@ -112,6 +117,15 @@ export class PreviewPanel {
       port: server.port,
     });
   }
+  
+  private unbindServer(): void {
+    if (this.boundServer) {
+      // Clear callbacks on the previous server
+      this.boundServer.onLogLine = undefined;
+      this.boundServer.onHotReload = undefined;
+      this.boundServer.removeAllCallbacks();
+    }
+  }
 
   postMessage(msg: PanelMessage): void {
     if (this.panel.webview) {
@@ -121,7 +135,7 @@ export class PreviewPanel {
     }
   }
 
-  private handleMessage(msg: { command?: string; [k: string]: unknown }): void {
+  private handleMessage(msg: { command?: string; type?: string; [k: string]: unknown }): void {
     // Handle messages from the webview
     switch (msg.command) {
       case 'start':
@@ -150,6 +164,13 @@ export class PreviewPanel {
       case 'takeScreenshot':
         vscode.commands.executeCommand('npmPreview.takeScreenshot');
         break;
+    }
+
+    // Handle message types (not commands)
+    if (msg.type === 'screenshotData' && typeof msg.data === 'string') {
+      vscode.commands.executeCommand('npmPreview.saveScreenshot', msg.data);
+    } else if (msg.type === 'screenshotError' && typeof msg.error === 'string') {
+      vscode.window.showErrorMessage(`Screenshot failed: ${msg.error}`);
     }
   }
 
@@ -232,9 +253,17 @@ export class PreviewPanel {
   }
 
   dispose(): void {
+    // Clear server bindings first to prevent callbacks to disposed panel
+    this.unbindServer();
+    
     PreviewPanel.currentPanel = undefined;
     this.boundServer = undefined;
-    this.panel.dispose();
+    
+    // Dispose all disposables
     this.disposables.forEach((d) => d.dispose());
+    this.disposables = [];
+    
+    // Dispose the panel
+    this.panel.dispose();
   }
 }
